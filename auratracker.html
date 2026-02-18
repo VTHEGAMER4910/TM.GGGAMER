@@ -1,0 +1,284 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Aura RPG Hub – Ultimate RPG</title>
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<style>
+body {margin:0;font-family:'Segoe UI', sans-serif;background: linear-gradient(135deg,#6a11cb,#2575fc); color:white;}
+header{text-align:center;padding:2rem;background: rgba(0,0,0,0.3); box-shadow:0 2px 10px rgba(0,0,0,0.3);}
+header h1{font-size:2.5rem; text-shadow:2px 2px 5px #000;}
+main{padding:2rem; max-width:1200px; margin:auto;}
+.cards{display:flex; flex-wrap:wrap; gap:1rem; justify-content:center; transition: all 0.5s;}
+.card{background: rgba(0,0,0,0.3); border-radius:12px; padding:1rem; width:250px; text-align:center; box-shadow:0 4px 10px rgba(0,0,0,0.3); transition: transform 0.5s;}
+.card:hover{transform: scale(1.05);}
+.avatar{width:80px; height:80px; border-radius:50%; margin-bottom:0.5rem;}
+.bar-container{background: rgba(255,255,255,0.1); border-radius:10px; margin:0.3rem 0; height:20px; width:100%;}
+.bar{height:100%; border-radius:10px; transition: width 0.5s;}
+.mental{background:#ffeb3b;}
+.physical{background:#00ff95;}
+.social{background:#00e0ff;}
+.xp{background:#ff55ff;}
+button{margin:0.5rem; padding:0.5rem 1rem; border:none; border-radius:8px; font-weight:bold; cursor:pointer; transition: transform 0.2s;}
+button:hover{transform: scale(1.05);}
+#miniGames{text-align:center; margin-top:2rem;}
+#gameArea{margin-top:2rem; text-align:center;}
+canvas{background: rgba(255,255,255,0.1); border-radius:10px; padding:1rem; margin-top:2rem;}
+#maze{display:inline-block; background:#222; padding:5px;}
+.maze-cell{width:30px; height:30px; display:inline-block; margin:1px; vertical-align:top;}
+.wall{background:#555;}
+.path{background:#fff;}
+.player{background:#ffeb3b;}
+.goal{background:#00e0ff;}
+</style>
+</head>
+<body>
+<header>
+<h1>Aura RPG Hub – Ultimate RPG</h1>
+</header>
+<main>
+<div class="cards" id="playerCards"></div>
+
+<div id="miniGames">
+<h2>Mini-Games</h2>
+<button onclick="startClickBattle()">Click Battle</button>
+<button onclick="startReactionTest()">Reaction Test</button>
+<button onclick="startMazeRunner()">Maze Runner</button>
+<button onclick="startCodingQuiz()">Coding Quiz</button>
+<button onclick="startProbabilityChallenge()">Probability Challenge</button>
+</div>
+
+<div id="gameArea"></div>
+
+<canvas id="auraChart" width="1000" height="400"></canvas>
+</main>
+
+<script>
+// ===== Players & Aura =====
+let players = [
+{name:"MrBeast", mental:20000, physical:15000, social:15000, xp:0, level:1, avatar:"https://yt3.ggpht.com/ytc/AMLnZu9Tcb7p6g0nYrD0yFU6LYDxXTA1_6sMKVmJ9SA=s176-c-k-c0x00ffffff-no-rj"},
+{name:"Caylus", mental:12000, physical:4000, social:4000, xp:0, level:1, avatar:"https://yt3.ggpht.com/ytc/AMLnZu8x9k7qWRwOqz9WQNjFxD3Zb6Kh0qZJQgGzXH5_=s176-c-k-c0x00ffffff-no-rj"},
+{name:"You", mental:1200, physical:700, social:950, xp:0, level:1, avatar:"https://i.imgur.com/9QfG0zH.png"}
+];
+
+function calculateTotal(p){ p.total=p.mental+p.physical+p.social; }
+
+// ===== Level & XP System =====
+function checkLevelUp(p){
+  let threshold=p.level*1000;
+  while(p.xp>=threshold){
+    p.xp-=threshold;
+    p.level++;
+    alert(`${p.name} leveled up to Level ${p.level}! +50 to all aura types!`);
+    p.mental+=50; p.physical+=50; p.social+=50;
+  }
+}
+
+// ===== Render Profiles & Chart =====
+function renderCards(){
+  // Sort players by total aura for leaderboard
+  players.forEach(p=>calculateTotal(p));
+  players.sort((a,b)=>b.total - a.total);
+  const container=document.getElementById("playerCards");
+  container.innerHTML="";
+  players.forEach(p=>{
+    checkLevelUp(p);
+    const card=document.createElement("div");
+    card.className="card";
+    const xpPercent=Math.min((p.xp/(p.level*1000))*100,100);
+    card.innerHTML=`
+      <img class="avatar" src="${p.avatar}" alt="${p.name}">
+      <h3>${p.name} (Level ${p.level})</h3>
+      <p>Total Aura: ${p.total}</p>
+      <div>XP: <div class="bar-container"><div class="bar xp" style="width:${xpPercent}%"></div></div></div>
+      <div>Mental: <div class="bar-container"><div class="bar mental" style="width:${Math.min(p.mental/500,100)}%"></div></div></div>
+      <div>Physical: <div class="bar-container"><div class="bar physical" style="width:${Math.min(p.physical/500,100)}%"></div></div></div>
+      <div>Social: <div class="bar-container"><div class="bar social" style="width:${Math.min(p.social/500,100)}%"></div></div></div>
+    `;
+    container.appendChild(card);
+  });
+  renderChart();
+}
+
+function renderChart(){
+  const ctx=document.getElementById('auraChart').getContext('2d');
+  if(window.auraChart) window.auraChart.destroy();
+  window.auraChart=new Chart(ctx,{
+    type:'bar',
+    data:{
+      labels: players.map(p=>p.name),
+      datasets:[
+        {label:'Mental Aura', data: players.map(p=>p.mental), backgroundColor:'#ffeb3b'},
+        {label:'Physical Aura', data: players.map(p=>p.physical), backgroundColor:'#00ff95'},
+        {label:'Social Aura', data: players.map(p=>p.social), backgroundColor:'#00e0ff'}
+      ]
+    },
+    options:{ responsive:true, scales:{ y:{beginAtZero:true} } }
+  });
+}
+
+// ===== Level Multiplier Function =====
+function applyMultiplier(base, level){
+  return Math.floor(base * (1 + level*0.05));
+}
+
+// ===== Mini-Games =====
+
+// --- Click Battle ---
+function startClickBattle(){
+  const gameArea=document.getElementById("gameArea");
+  gameArea.innerHTML="<h3>Click as fast as you can in 10 seconds!</h3><button id='clickBtn'>Click Me!</button><p>Clicks: <span id='clickCount'>0</span></p>";
+  let count=0;
+  const you=players.find(p=>p.name==="You");
+  const btn=document.getElementById("clickBtn");
+  btn.onclick=()=>{count++; document.getElementById("clickCount").innerText=count;}
+  setTimeout(()=>{
+    const gain=applyMultiplier(count*10, you.level);
+    const xpGain=count;
+    you.mental+=gain; you.xp+=xpGain;
+    alert(`Click Battle over! +${gain} Mental Aura, +${xpGain} XP`);
+    renderCards(); gameArea.innerHTML="";
+  },10000);
+}
+
+// --- Reaction Test ---
+function startReactionTest(){
+  const gameArea=document.getElementById("gameArea");
+  gameArea.innerHTML="<h3>Wait for green, then click!</h3><div id='reactionBox' style='width:300px;height:200px;margin:auto;background:#ff0000;'></div>";
+  const box=document.getElementById("reactionBox");
+  const you=players.find(p=>p.name==="You");
+  let startTime, reacted=false;
+  const delay=Math.floor(Math.random()*3000)+2000;
+  setTimeout(()=>{box.style.background="#00ff00"; startTime=Date.now();}, delay);
+  box.onclick=()=>{
+    if(!reacted && startTime){
+      reacted=true;
+      const reaction=Date.now()-startTime;
+      const gain=applyMultiplier(Math.max(0,500-reaction), you.level);
+      const xpGain=Math.floor(gain/10);
+      you.mental+=gain; you.xp+=xpGain;
+      alert(`Reaction Test: +${gain} Mental Aura, +${xpGain} XP`);
+      renderCards(); gameArea.innerHTML="";
+    }
+  }
+}
+
+// --- Maze Runner ---
+const mazeLayout=[
+[1,1,1,1,1,1,1,1,1,1],
+[1,2,0,0,0,1,0,0,3,1],
+[1,0,1,1,0,1,0,1,0,1],
+[1,0,0,1,0,0,0,1,0,1],
+[1,1,0,1,0,1,0,0,0,1],
+[1,0,0,0,0,1,0,1,0,1],
+[1,1,1,1,1,1,1,1,1,1]
+];
+function startMazeRunner(){
+  const gameArea=document.getElementById("gameArea");
+  const you=players.find(p=>p.name==="You");
+  let playerPos={x:1,y:1};
+  function drawMaze(){
+    let html="<div id='maze'>";
+    for(let y=0;y<mazeLayout.length;y++){
+      for(let x=0;x<mazeLayout[0].length;x++){
+        let cell=mazeLayout[y][x], cls="maze-cell";
+        if(cell===1) cls+=" wall";
+        else if(x===playerPos.x && y===playerPos.y) cls+=" player";
+        else if(cell===3) cls+=" goal";
+        else cls+=" path";
+        html+=`<div class='${cls}'></div>`;
+      }
+      html+="<br>";
+    }
+    html+="</div>";
+    gameArea.innerHTML="<h3>Use arrow keys to reach the goal!</h3>"+html;
+  }
+  drawMaze();
+  function movePlayer(dx,dy){
+    const nx=playerPos.x+dx, ny=playerPos.y+dy;
+    if(mazeLayout[ny][nx]!==1){
+      playerPos={x:nx,y:ny};
+      drawMaze();
+      if(mazeLayout[ny][nx]===3){
+        const gain=applyMultiplier(500,you.level);
+        const xpGain=applyMultiplier(100,you.level);
+        you.physical+=gain; you.xp+=xpGain;
+        alert(`Maze Completed! +${gain} Physical Aura, +${xpGain} XP`);
+        renderCards(); gameArea.innerHTML="";
+        document.removeEventListener("keydown", keyHandler);
+      }
+    }
+  }
+  function keyHandler(e){
+    if(e.key==="ArrowUp") movePlayer(0,-1);
+    if(e.key==="ArrowDown") movePlayer(0,1);
+    if(e.key==="ArrowLeft") movePlayer(-1,0);
+    if(e.key==="ArrowRight") movePlayer(1,0);
+  }
+  document.addEventListener("keydown", keyHandler);
+}
+
+// --- Coding Quiz ---
+function startCodingQuiz(){
+  const gameArea=document.getElementById("gameArea");
+  const you=players.find(p=>p.name==="You");
+  const questions=[
+    {q:"What is 5+7?", a:"12", type:"Mental"},
+    {q:"Which is a social skill?", a:"Listening", type:"Social"},
+    {q:"What is 10*3?", a:"30", type:"Mental"}
+  ];
+  let score=0, xpGain=0;
+  let i=0;
+  function askQuestion(){
+    if(i>=questions.length){ 
+      alert(`Quiz finished! +${score} Aura, +${xpGain} XP`);
+      renderCards(); gameArea.innerHTML=""; return;
+    }
+    const q=questions[i];
+    gameArea.innerHTML=`<h3>Question ${i+1}: ${q.q}</h3>
+    <input id='ans' placeholder='Answer'><button onclick='checkAnswer()'>Submit</button>`;
+    window.checkAnswer=function(){
+      const ans=document.getElementById("ans").value;
+      let gain=applyMultiplier(50,you.level);
+      if(ans.toLowerCase()===q.a.toLowerCase()){
+        score+=gain;
+        xpGain+=Math.floor(gain/10);
+        if(q.type==="Mental") you.mental+=gain;
+        else if(q.type==="Social") you.social+=gain;
+      } else {
+        // penalty
+        if(q.type==="Mental") you.mental-=10;
+        else if(q.type==="Social") you.social-=10;
+      }
+      i++; askQuestion();
+    }
+  }
+  askQuestion();
+}
+
+// --- Probability Challenge ---
+function startProbabilityChallenge(){
+  const gameArea=document.getElementById("gameArea");
+  const you=players.find(p=>p.name==="You");
+  const number=Math.floor(Math.random()*5)+1;
+  gameArea.innerHTML=`<h3>Guess a number between 1-5</h3>
+  <input id='guess' placeholder='1-5'><button onclick='checkGuess()'>Submit</button>`;
+  window.checkGuess=function(){
+    const g=parseInt(document.getElementById("guess").value);
+    let gain=0, xpGain=0;
+    if(g===number){
+      gain=applyMultiplier(50,you.level);
+      xpGain=applyMultiplier(10,you.level);
+      you.social+=gain;
+      you.xp+=xpGain;
+      alert(`Correct! +${gain} Social Aura, +${xpGain} XP`);
+    } else alert(`Wrong! The number was ${number}`);
+    renderCards(); gameArea.innerHTML="";
+  }
+}
+
+renderCards();
+</script>
+</body>
+</html>
